@@ -6,18 +6,27 @@ ENV SPARK_VERSION 1.6.3
 ENV ELASTICSEARCH_VERSION 1.7.6
 ENV HBASE_VERSION 1.0.0
 
-ENV PIO_HOME /PredictionIO-${PIO_VERSION}
+ENV PIO_HOME /PredictionIO-${PIO_VERSION}-incubating
 ENV PATH=${PIO_HOME}/bin:$PATH
 ENV JAVA_HOME /usr/lib/jvm/java-8-openjdk-amd64
 
-RUN sed -ri 's#(archive|security).ubuntu.com#mirrors.aliyun.com/ubuntu#' /etc/apt/sources.list
+# RUN sed -ri 's#(archive|security).ubuntu.com#mirrors.aliyun.com/ubuntu#' /etc/apt/sources.list
 
 RUN apt-get update \
     && apt-get install -y --auto-remove --no-install-recommends curl openjdk-8-jdk libgfortran3 python-pip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-RUN curl -O https://d8k1yxp8elc6b.cloudfront.net/PredictionIO-${PIO_VERSION}.tar.gz
+RUN mkdir -p ${PIO_HOME}/src \
+    && curl -O http://www-us.apache.org/dist/incubator/predictionio/${PIO_VERSION}-incubating/apache-predictionio-${PIO_VERSION}-incubating.tar.gz \
+    && tar -xvzf apache-predictionio-${PIO_VERSION}-incubating.tar.gz \
+         -C ${PIO_HOME}/src \
+    && rm apache-predictionio-${PIO_VERSION}-incubating.tar.gz \
+    && cd ${PIO_HOME}/src \
+    && ./make-distribution.sh \
+    && tar xzvf PredictionIO-${PIO_VERSION}-incubating.tar.gz -C / \
+    && mkdir -p ${PIO_HOME}/vendors \
+    && rm PredictionIO-${PIO_VERSION}-incubating.tar.gz
 COPY files/pio-env.sh ${PIO_HOME}/conf/pio-env.sh
 
 RUN curl -O http://d3kbcqa49mib13.cloudfront.net/spark-${SPARK_VERSION}-bin-hadoop2.6.tgz \
@@ -37,7 +46,7 @@ COPY files/hbase-site.xml ${PIO_HOME}/vendors/hbase-${HBASE_VERSION}/conf/hbase-
 RUN sed -i "s|VAR_PIO_HOME|${PIO_HOME}|" ${PIO_HOME}/vendors/hbase-${HBASE_VERSION}/conf/hbase-site.xml \
     && sed -i "s|VAR_HBASE_VERSION|${HBASE_VERSION}|" ${PIO_HOME}/vendors/hbase-${HBASE_VERSION}/conf/hbase-site.xml
 
-RUN ${PIO_HOME}/sbt/sbt -batch
+RUN cd ${PIO_HOME} && sbt/sbt -batch
 
 #prepare example: Similar Product Engine Template
 #(http://predictionio.incubator.apache.org/templates/similarproduct/quickstart/)
